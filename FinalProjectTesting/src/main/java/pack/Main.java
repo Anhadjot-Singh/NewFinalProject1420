@@ -4,14 +4,16 @@ import java.awt.*;
 import java.awt.Point;
 import java.util.HashSet;
 import java.util.Set;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
 class GameState {
-    Point player1Position = new Point(0, 0); // Starting position for player 1
-    Point player2Position = new Point(9, 9); // Starting position for player 2
+    Point player1Position = new Point(0, 0);
+    Point player2Position = new Point(9, 9);
     Set<Point> treasures = new HashSet<>();
+    private int currentPlayerTurn = 1;
 
     public GameState() {
-        // Initialize treasures at predefined locations for demonstration
         treasures.add(new Point(2, 3));
         treasures.add(new Point(5, 5));
         treasures.add(new Point(7, 8));
@@ -21,122 +23,151 @@ class GameState {
         return treasures.contains(new Point(x, y));
     }
 
-    public void movePlayer(int playerNum, int x, int y) {
-        Point playerPosition = playerNum == 1 ? player1Position : player2Position;
-        // Ensure new position is within grid boundaries
-        if (x >= 0 && x < 10 && y >= 0 && y < 10) {
-            playerPosition.setLocation(x, y);
-        }
-        treasures.remove(new Point(x, y)); // Assume treasures can be on edge and collected
+    public void movePlayer(int x, int y) {
+        Point playerPosition = currentPlayerTurn == 1 ? player1Position : player2Position;
+        Point newPosition = new Point(x, y);
+
+        // Check grid boundaries
+        if (x < 0 || x >= 10 || y < 0 || y >= 10) return;
+
+        // Prevent players from moving onto each other's position
+        if (newPosition.equals(player1Position) || newPosition.equals(player2Position)) return;
+
+        playerPosition.setLocation(x, y);
+
+        // Switch turns after a move
+        currentPlayerTurn = currentPlayerTurn == 1 ? 2 : 1;
+        treasures.remove(newPosition); // Collect treasure if present
     }
 
-    // Add this in GameState after moving a player
-    if (player1Position.equals(player2Position)) {
-        // Example reaction: Move Player 2 back to start position if they collide
-        if (playerNum == 1)
+    public int getCurrentPlayerTurn() {
+        return currentPlayerTurn;
+    }
+}
+
+class TravelingSalesmanGame extends JFrame {
+    private final int WINDOW_WIDTH = 800; // Window width
+    private final int WINDOW_HEIGHT = 800; // Window height
+    private final int GRID_SIZE = 10; // Grid size for the map, 10x10
+    private final int CELL_SIZE = 80; // Each cell size
+    private JLabel statusLabel = new JLabel("Player 1's Turn", SwingConstants.CENTER);
 
 
+    public TravelingSalesmanGame() {
+        GamePanel gamePanel = new GamePanel(statusLabel);
+        setTitle("Traveling Salesman Game");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(800, 850); // Adjusted for the status label
+        setLayout(new BorderLayout());
+        add(gamePanel, BorderLayout.CENTER);
 
-            class TravelingSalesmanGame extends JFrame {
-        private final int WINDOW_WIDTH = 800; // Window width
-        private final int WINDOW_HEIGHT = 800; // Window height
-        private final int GRID_SIZE = 10; // Grid size for the map, 10x10
-        private final int CELL_SIZE = 80; // Each cell size
+        statusLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        add(statusLabel, BorderLayout.SOUTH);
+
+        gamePanel.requestFocusInWindow(); // Ensure the GamePanel has focus to receive key events
+    }
 
 
-        public TravelingSalesmanGame() {
-            setTitle("Traveling Salesman Game");
-            setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-            setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            setResizable(false);
-            setLocationRelativeTo(null); // Center the window
+    // Inside the TravelingSalesmanGame class
 
-            add(new GamePanel());
+    public class GamePanel extends JPanel {
+        private GameState gameState = new GameState();
+        private JLabel statusLabel;
+
+        public GamePanel(JLabel statusLabel) {
+            this.statusLabel = statusLabel;
+            setFocusable(true);
+            requestFocusInWindow();
+            setupKeyListener();
         }
 
-        // Inside the TravelingSalesmanGame class
+        private void setupKeyListener() {
+            addKeyListener(new KeyAdapter() {
+                @Override
+                public void keyPressed(KeyEvent e) {
+                    handleKeyPress(e);
+                    updateStatus(); // Update the status label after handling the key press
+                }
+            });
+        }
 
-        private class GamePanel extends JPanel {
-            GameState gameState = new GameState();
 
-            // Inside the GamePanel class
-            public GamePanel() {
-                setFocusable(true); // Important to make the panel focusable to receive key events
-                requestFocusInWindow();
-                addKeyListener(new KeyAdapter() {
-                    @Override
-                    public void keyPressed(KeyEvent e) {
-                        handleKeyPress(e);
-                    }
-                });
+        private void handleKeyPress(KeyEvent e) {
+            int x = gameState.getCurrentPlayerTurn() == 1 ? gameState.player1Position.x : gameState.player2Position.x;
+            int y = gameState.getCurrentPlayerTurn() == 1 ? gameState.player1Position.y : gameState.player2Position.y;
+
+            switch (e.getKeyCode()) {
+                case KeyEvent.VK_W:
+                case KeyEvent.VK_UP:
+                    y--;
+                    break;
+                case KeyEvent.VK_S:
+                case KeyEvent.VK_DOWN:
+                    y++;
+                    break;
+                case KeyEvent.VK_A:
+                case KeyEvent.VK_LEFT:
+                    x--;
+                    break;
+                case KeyEvent.VK_D:
+                case KeyEvent.VK_RIGHT:
+                    x++;
+                    break;
+                default:
+                    return; // Ignore other keys
             }
 
-            private void handleKeyPress(KeyEvent e) {
-                int keyCode = e.getKeyCode();
-                // Player 1 controls
-                if (keyCode == KeyEvent.VK_W)
-                    gameState.movePlayer(1, gameState.player1Position.x, gameState.player1Position.y - 1);
-                else if (keyCode == KeyEvent.VK_S)
-                    gameState.movePlayer(1, gameState.player1Position.x, gameState.player1Position.y + 1);
-                else if (keyCode == KeyEvent.VK_A)
-                    gameState.movePlayer(1, gameState.player1Position.x - 1, gameState.player1Position.y);
-                else if (keyCode == KeyEvent.VK_D)
-                    gameState.movePlayer(1, gameState.player1Position.x + 1, gameState.player1Position.y);
+            updateStatus();
 
-                // Player 2 controls
-                if (keyCode == KeyEvent.VK_UP)
-                    gameState.movePlayer(2, gameState.player2Position.x, gameState.player2Position.y - 1);
-                else if (keyCode == KeyEvent.VK_DOWN)
-                    gameState.movePlayer(2, gameState.player2Position.x, gameState.player2Position.y + 1);
-                else if (keyCode == KeyEvent.VK_LEFT)
-                    gameState.movePlayer(2, gameState.player2Position.x - 1, gameState.player2Position.y);
-                else if (keyCode == KeyEvent.VK_RIGHT)
-                    gameState.movePlayer(2, gameState.player2Position.x + 1, gameState.player2Position.y);
+            gameState.movePlayer(x, y);
+            repaint(); // Redraw after movement
+        }
 
-                repaint(); // Redraw the panel with updated positions
-            }
+        public void updateStatus() {
+            SwingUtilities.invokeLater(() -> {
+                statusLabel.setText("Player " + gameState.getCurrentPlayerTurn() + "'s Turn");
+            });
+        }
 
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            drawGrid(g);
+            drawPlayer(g, gameState.player1Position, Color.RED, "P1");
+            drawPlayer(g, gameState.player2Position, Color.BLUE, "P2");
+        }
 
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                drawGrid(g);
-                drawPlayer(g, gameState.player1Position, Color.RED);
-                drawPlayer(g, gameState.player2Position, Color.BLUE);
-            }
-
-            private void drawPlayer(Graphics g, Point position, Color color) {
-                g.setColor(color);
-                int x = position.x * CELL_SIZE;
-                int y = position.y * CELL_SIZE;
-                g.fillOval(x + 20, y + 20, CELL_SIZE - 40, CELL_SIZE - 40);
-                g.setColor(Color.BLACK); // Reset color for grid drawing
-            }
+        // Drawing method updated to include player labels for clarity
+        private void drawPlayer(Graphics g, Point position, Color color, String label) {
+            g.setColor(color);
+            int cellSize = 80;
+            g.fillOval(position.x * cellSize + 10, position.y * cellSize + 10, cellSize - 20, cellSize - 20);
+            g.setColor(Color.BLACK);
+            g.drawString(label, position.x * cellSize + 35, position.y * cellSize + 45);
+        }
 
 
-            private void drawGrid(Graphics g) {
-                // Same grid drawing code as before, with added checks for treasures
-                for (int i = 0; i < GRID_SIZE; i++) {
-                    for (int j = 0; j < GRID_SIZE; j++) {
-                        int x = i * CELL_SIZE;
-                        int y = j * CELL_SIZE;
-                        g.drawRect(x, y, CELL_SIZE, CELL_SIZE);
-                        if (gameState.isTreasure(i, j)) {
-                            g.setColor(Color.GREEN);
-                            g.fillRect(x + 1, y + 1, CELL_SIZE - 1, CELL_SIZE - 1);
-                            g.setColor(Color.BLACK);
-                        }
+        private void drawGrid(Graphics g) {
+            for (int i = 0; i < GRID_SIZE; i++) {
+                for (int j = 0; j < GRID_SIZE; j++) {
+                    int x = i * CELL_SIZE;
+                    int y = j * CELL_SIZE;
+                    g.drawRect(x, y, CELL_SIZE, CELL_SIZE); // Draw cell borders
+                    if (gameState.isTreasure(i, j)) {
+                        g.setColor(Color.GREEN); // Color cell green if it contains a treasure
+                        g.fillRect(x + 1, y + 1, CELL_SIZE - 1, CELL_SIZE - 1);
+                        g.setColor(Color.BLACK); // Reset color for subsequent drawing
                     }
                 }
             }
-
-
-            public static void main(String[] args) {
-                SwingUtilities.invokeLater(() -> {
-                    TravelingSalesmanGame game = new TravelingSalesmanGame();
-                    game.setVisible(true);
-                });
-            }
         }
     }
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            TravelingSalesmanGame frame = new TravelingSalesmanGame();
+            frame.setVisible(true);
+        });
+
+    }
 }
+
